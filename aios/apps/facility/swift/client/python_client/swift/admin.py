@@ -1,7 +1,7 @@
 """
-Swift Admin Adaptor - Topic 管理操作。
+Swift Admin Adaptor - Topic management operations.
 
-对应 Java 端的 SwiftAdminAdaptor.java。
+Corresponds to SwiftAdminAdaptor.java on the Java side.
 """
 
 import time
@@ -14,9 +14,10 @@ from .exception import ErrorCode, SwiftException
 
 class SwiftAdminAdaptor:
     """
-    执行 Swift Topic 管理操作：创建/删除/查询 Topic、获取分区信息等。
+    Performs Swift Topic management operations: create/delete/query topics,
+    get partition info, etc.
 
-    所有方法均线程安全（内部加锁）。
+    All methods are thread-safe (internally locked).
     """
 
     def __init__(self, api: SwiftClientApi, admin_ptr: int):
@@ -25,15 +26,15 @@ class SwiftAdminAdaptor:
         self._lock = threading.Lock()
 
     # ------------------------------------------------------------------ #
-    #  Broker 地址查询                                                      #
+    #  Broker Address Query                                                #
     # ------------------------------------------------------------------ #
 
     def get_broker_address(self, topic_name: str, partition_id: int) -> str:
         """
-        获取指定 topic 分区对应的 Broker 地址。
+        Get the broker address for the specified topic partition.
 
-        :return: "host:port" 格式的地址字符串
-        :raises SwiftException: 失败时抛出
+        :return: Address string in "host:port" format
+        :raises SwiftException: Raised on failure
         """
         with self._lock:
             self._check_open()
@@ -42,15 +43,15 @@ class SwiftAdminAdaptor:
             return address
 
     # ------------------------------------------------------------------ #
-    #  Topic CRUD                                                           #
+    #  Topic CRUD                                                          #
     # ------------------------------------------------------------------ #
 
     def create_topic(self, request):
         """
-        创建 Topic。
+        Create a Topic.
 
-        :param request: TopicCreationRequest protobuf 对象，或已序列化的 bytes
-        :raises SwiftException: 失败时抛出（含 ERROR_ADMIN_TOPIC_HAS_EXISTED）
+        :param request: TopicCreationRequest protobuf object, or serialized bytes
+        :raises SwiftException: Raised on failure (including ERROR_ADMIN_TOPIC_HAS_EXISTED)
         """
         with self._lock:
             self._check_open()
@@ -60,9 +61,9 @@ class SwiftAdminAdaptor:
 
     def delete_topic(self, topic_name: str):
         """
-        删除 Topic。
+        Delete a Topic.
 
-        :raises SwiftException: 失败时抛出（含 ERROR_ADMIN_TOPIC_NOT_EXISTED）
+        :raises SwiftException: Raised on failure (including ERROR_ADMIN_TOPIC_NOT_EXISTED)
         """
         with self._lock:
             self._check_open()
@@ -71,12 +72,13 @@ class SwiftAdminAdaptor:
 
     def wait_topic_ready(self, topic_name: str, timeout_sec: int = 60) -> bool:
         """
-        轮询等待 Topic 进入 RUNNING 状态（与 Java 端逻辑一致，每 2s 轮询一次）。
+        Poll until the Topic enters RUNNING state (consistent with Java client logic,
+        polling every 2 seconds).
 
-        :param topic_name:  Topic 名称
-        :param timeout_sec: 最长等待秒数
-        :return: True 表示 Topic 已就绪，False 表示超时
-        :raises SwiftException: 非"Topic 不存在"的错误时抛出
+        :param topic_name:  Topic name
+        :param timeout_sec: Maximum wait time in seconds
+        :return: True if Topic is ready, False on timeout
+        :raises SwiftException: Raised on errors other than "Topic does not exist"
         """
         deadline = time.time() + timeout_sec
         while time.time() < deadline:
@@ -93,15 +95,15 @@ class SwiftAdminAdaptor:
         return False
 
     # ------------------------------------------------------------------ #
-    #  Topic 查询                                                           #
+    #  Topic Query                                                         #
     # ------------------------------------------------------------------ #
 
     def get_topic_info(self, topic_name: str):
         """
-        查询 Topic 信息。
+        Query Topic information.
 
-        :return: TopicInfoResponse protobuf 对象（如果 proto 未生成则返回 bytes）
-        :raises SwiftException: 失败时抛出
+        :return: TopicInfoResponse protobuf object (returns bytes if proto is not generated)
+        :raises SwiftException: Raised on failure
         """
         with self._lock:
             self._check_open()
@@ -111,10 +113,10 @@ class SwiftAdminAdaptor:
 
     def get_all_topic_info(self):
         """
-        查询所有 Topic 信息。
+        Query all Topic information.
 
-        :return: AllTopicInfoResponse protobuf 对象（如果 proto 未生成则返回 bytes）
-        :raises SwiftException: 失败时抛出
+        :return: AllTopicInfoResponse protobuf object (returns bytes if proto is not generated)
+        :raises SwiftException: Raised on failure
         """
         with self._lock:
             self._check_open()
@@ -124,10 +126,10 @@ class SwiftAdminAdaptor:
 
     def get_partition_count(self, topic_name: str) -> int:
         """
-        获取 Topic 的分区数。
+        Get the partition count of a Topic.
 
-        :return: 分区数
-        :raises SwiftException: 失败时抛出
+        :return: Partition count
+        :raises SwiftException: Raised on failure
         """
         with self._lock:
             self._check_open()
@@ -137,10 +139,10 @@ class SwiftAdminAdaptor:
 
     def get_partition_info(self, topic_name: str, partition_id: int):
         """
-        查询单个分区信息。
+        Query single partition information.
 
-        :return: PartitionInfoResponse protobuf 对象（如果 proto 未生成则返回 bytes）
-        :raises SwiftException: 失败时抛出
+        :return: PartitionInfoResponse protobuf object (returns bytes if proto is not generated)
+        :raises SwiftException: Raised on failure
         """
         with self._lock:
             self._check_open()
@@ -149,7 +151,7 @@ class SwiftAdminAdaptor:
             return self._parse_partition_info_response(data)
 
     # ------------------------------------------------------------------ #
-    #  生命周期                                                             #
+    #  Lifecycle                                                           #
     # ------------------------------------------------------------------ #
 
     def is_closed(self) -> bool:
@@ -170,7 +172,7 @@ class SwiftAdminAdaptor:
         self.close()
 
     # ------------------------------------------------------------------ #
-    #  内部工具                                                             #
+    #  Internal Utilities                                                  #
     # ------------------------------------------------------------------ #
 
     def _check_open(self):

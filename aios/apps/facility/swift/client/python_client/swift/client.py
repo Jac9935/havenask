@@ -1,7 +1,7 @@
 """
-SwiftClient - Swift 客户端主入口。
+SwiftClient - Main client entry point.
 
-对应 Java 端的 SwiftClient.java。
+Corresponds to SwiftClient.java on the Java side.
 """
 
 import threading
@@ -16,9 +16,10 @@ from .exception import ErrorCode, SwiftException
 
 class SwiftClient:
     """
-    Swift 客户端主类，负责管理 Reader、Writer 和 AdminAdaptor 的生命周期。
+    Main Swift client class, responsible for managing the lifecycle of
+    Reader, Writer, and AdminAdaptor instances.
 
-    使用示例：
+    Example:
         client = SwiftClient(lib_dir="/path/to/so/files")
         client.init("zkPath=zfs://10.0.0.1:2181/swift/service;logConfigFile=./alog.conf")
         reader = client.create_reader("topicName=my_topic;partitionId=0")
@@ -27,7 +28,7 @@ class SwiftClient:
         ...
         client.close()
 
-    推荐使用 with 语句管理生命周期：
+    Recommended: use with statement for lifecycle management:
         with SwiftClient(lib_dir=...) as client:
             client.init(config_str)
             ...
@@ -35,8 +36,8 @@ class SwiftClient:
 
     def __init__(self, lib_dir: Optional[str] = None):
         """
-        :param lib_dir: 原生 .so 文件所在目录。
-                        如果为 None，则依赖 LD_LIBRARY_PATH 环境变量。
+        :param lib_dir: Directory containing native .so files.
+                        If None, relies on the LD_LIBRARY_PATH environment variable.
         """
         self._api: Optional[SwiftClientApi] = None
         self._lib_dir = lib_dir
@@ -48,16 +49,16 @@ class SwiftClient:
         self._admins: List[SwiftAdminAdaptor] = []
 
     # ------------------------------------------------------------------ #
-    #  初始化                                                               #
+    #  Initialization                                                      #
     # ------------------------------------------------------------------ #
 
     def init(self, client_config_str: str):
         """
-        初始化 Swift 客户端，加载原生库并建立连接。
+        Initialize the Swift client, load native libraries and establish connection.
 
-        :param client_config_str: 客户端配置字符串，格式：
+        :param client_config_str: Client configuration string, format:
             "zkPath=zfs://host:port/swift/service;logConfigFile=./alog.conf;useFollowerAdmin=false"
-        :raises SwiftException: 初始化失败时抛出
+        :raises SwiftException: Raised on initialization failure
         """
         with self._lock:
             if self._client_ptr != 0:
@@ -73,18 +74,18 @@ class SwiftClient:
             self._client_ptr = ptr
 
     # ------------------------------------------------------------------ #
-    #  创建 Reader / Writer / Admin                                         #
+    #  Create Reader / Writer / Admin                                      #
     # ------------------------------------------------------------------ #
 
     def create_reader(self, reader_config_str: str) -> SwiftReader:
         """
-        创建 Swift Reader。
+        Create a Swift Reader.
 
-        :param reader_config_str: Reader 配置字符串，格式：
+        :param reader_config_str: Reader configuration string, format:
             "topicName=my_topic;partitionId=0"
             "topicName=my_topic;partitionId=0;readFromOffset=readFromBeginning"
-        :return: SwiftReader 实例（调用方负责 close）
-        :raises SwiftException: 失败时抛出
+        :return: SwiftReader instance (caller is responsible for closing)
+        :raises SwiftException: Raised on failure
         """
         with self._lock:
             self._check_initialized()
@@ -98,13 +99,13 @@ class SwiftClient:
 
     def create_writer(self, writer_config_str: str) -> SwiftWriter:
         """
-        创建 Swift Writer。
+        Create a Swift Writer.
 
-        :param writer_config_str: Writer 配置字符串，格式：
+        :param writer_config_str: Writer configuration string, format:
             "topicName=my_topic"
             "topicName=my_topic;functionChain=HASH,hashId2partId"
-        :return: SwiftWriter 实例（调用方负责 close）
-        :raises SwiftException: 失败时抛出
+        :return: SwiftWriter instance (caller is responsible for closing)
+        :raises SwiftException: Raised on failure
         """
         with self._lock:
             self._check_initialized()
@@ -118,11 +119,11 @@ class SwiftClient:
 
     def get_admin_adapter(self, zk_path: Optional[str] = None) -> SwiftAdminAdaptor:
         """
-        获取 Admin Adaptor 用于管理操作。
+        Get an Admin Adaptor for management operations.
 
-        :param zk_path: 可选，指定 ZK 路径；为 None 时使用 init() 中配置的路径
-        :return: SwiftAdminAdaptor 实例（调用方负责 close）
-        :raises SwiftException: 失败时抛出
+        :param zk_path: Optional ZK path; if None, uses the path configured in init()
+        :return: SwiftAdminAdaptor instance (caller is responsible for closing)
+        :raises SwiftException: Raised on failure
         """
         with self._lock:
             self._check_initialized()
@@ -137,7 +138,7 @@ class SwiftClient:
             return adaptor
 
     # ------------------------------------------------------------------ #
-    #  生命周期                                                             #
+    #  Lifecycle                                                           #
     # ------------------------------------------------------------------ #
 
     def is_closed(self) -> bool:
@@ -146,7 +147,8 @@ class SwiftClient:
 
     def close(self):
         """
-        关闭客户端及所有关联的 Reader、Writer、Admin（与 Java 端行为一致）。
+        Close the client and all associated Readers, Writers, and Admins
+        (consistent with Java client behavior).
         """
         with self._lock:
             if self._client_ptr == 0:
@@ -177,7 +179,7 @@ class SwiftClient:
         self.close()
 
     # ------------------------------------------------------------------ #
-    #  内部工具                                                             #
+    #  Internal Utilities                                                  #
     # ------------------------------------------------------------------ #
 
     def _check_initialized(self):

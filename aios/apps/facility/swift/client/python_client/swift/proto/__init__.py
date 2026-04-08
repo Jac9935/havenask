@@ -1,5 +1,5 @@
-# Proto 生成的 Python 文件放在此目录下。
-# 请先执行 ../generate_proto.sh 生成以下文件：
+# Proto-generated Python files are placed in this directory.
+# Please run ../generate_proto.sh first to generate the following files:
 #   - common_pb2.py
 #   - err_code_pb2.py
 #   - swift_message_pb2.py

@@ -1,13 +1,13 @@
 """
-FieldGroup 序列化/反序列化工具。
+FieldGroup serialization/deserialization utilities.
 
-对应 Java 端的 FieldGroupWriter.java 和 FieldGroupReader.java。
+Corresponds to FieldGroupWriter.java and FieldGroupReader.java on the Java side.
 
-Swift 使用自定义二进制格式对消息字段进行编码：
-  - 生产消息格式（Production）：name_len(varint) + name + value_len(varint) + value + is_updated(1byte)
-  - 消费消息格式（Consumption）：is_existed(1byte) + [value_len(varint) + value + is_updated(1byte)]
+Swift uses a custom binary format to encode message fields:
+  - Production format: name_len(varint) + name + value_len(varint) + value + is_updated(1byte)
+  - Consumption format: is_existed(1byte) + [value_len(varint) + value + is_updated(1byte)]
 
-Varint 编码与 protobuf 相同（7 位一组，最高位为延续位）。
+Varint encoding is identical to protobuf (7 bits per group, MSB as continuation bit).
 """
 
 from io import BytesIO
@@ -29,12 +29,12 @@ class Field:
 
 
 # ------------------------------------------------------------------ #
-#  Varint 编解码                                                       #
+#  Varint Encoding/Decoding                                            #
 # ------------------------------------------------------------------ #
 
 def _write_varint32(buf: BytesIO, value: int):
-    """将无符号 int 以 varint 格式写入缓冲区（与 protobuf 编码一致）。"""
-    value = value & 0xFFFFFFFF  # 视为无符号 32 位
+    """Write an unsigned int to the buffer in varint format (consistent with protobuf encoding)."""
+    value = value & 0xFFFFFFFF  # Treat as unsigned 32-bit
     while True:
         if (value & ~0x7F) == 0:
             buf.write(bytes([value]))
@@ -45,8 +45,8 @@ def _write_varint32(buf: BytesIO, value: int):
 
 def _read_varint32(data: bytes, pos: int) -> (int, int):
     """
-    从 data[pos:] 读取一个 varint32，返回 (value, new_pos)。
-    最多读取 5 个字节（32 位 varint）。
+    Read a varint32 from data[pos:], returns (value, new_pos).
+    Reads at most 5 bytes (32-bit varint).
     """
     result = 0
     shift = 0
@@ -68,9 +68,9 @@ def _read_varint32(data: bytes, pos: int) -> (int, int):
 
 class FieldGroupWriter:
     """
-    将字段列表序列化为 Swift 生产消息格式（Production format）。
+    Serialize a list of fields into Swift production message format.
 
-    使用示例：
+    Example:
         writer = FieldGroupWriter()
         writer.add_field("title", "hello world", is_updated=True)
         writer.add_field("id", "123")
@@ -82,11 +82,11 @@ class FieldGroupWriter:
 
     def add_field(self, name: str, value: str, is_updated: bool = False):
         """
-        添加一个字段。
+        Add a field.
 
-        :param name:       字段名（UTF-8 字符串）
-        :param value:      字段值（UTF-8 字符串）
-        :param is_updated: 是否为更新字段
+        :param name:       Field name (UTF-8 string)
+        :param value:      Field value (UTF-8 string)
+        :param is_updated: Whether this is an updated field
         """
         name_bytes = name.encode("utf-8")
         value_bytes = value.encode("utf-8")
@@ -98,7 +98,7 @@ class FieldGroupWriter:
 
     def add_field_bytes(self, name: bytes, value: bytes, is_updated: bool = False):
         """
-        添加一个字段（字节数组版本，适用于非 UTF-8 值）。
+        Add a field (byte array version, suitable for non-UTF-8 values).
         """
         _write_varint32(self._buf, len(name))
         self._buf.write(name)
@@ -107,11 +107,11 @@ class FieldGroupWriter:
         self._buf.write(bytes([1 if is_updated else 0]))
 
     def to_bytes(self) -> bytes:
-        """返回序列化后的字节数组。"""
+        """Return the serialized byte array."""
         return self._buf.getvalue()
 
     def reset(self):
-        """清空缓冲区，重新开始写入。"""
+        """Clear the buffer and start writing from scratch."""
         self._buf = BytesIO()
 
 
@@ -121,13 +121,13 @@ class FieldGroupWriter:
 
 class FieldGroupReader:
     """
-    将 Swift 消息字节解析为字段列表。
+    Parse Swift message bytes into a list of fields.
 
-    支持两种格式：
-      - Production 格式：用于生产端写入的消息（from_production_string）
-      - Consumption 格式：用于消费端读取的消息（from_consumption_string）
+    Supports two formats:
+      - Production format: messages written by the producer (from_production_string)
+      - Consumption format: messages read by the consumer (from_consumption_string)
 
-    使用示例：
+    Example:
         reader = FieldGroupReader()
         reader.from_production_string(data_bytes)
         for field in reader.fields:
@@ -139,13 +139,13 @@ class FieldGroupReader:
 
     def from_production_string(self, data: bytes) -> bool:
         """
-        解析生产消息格式。
+        Parse production message format.
 
-        格式：[name_len(varint) name value_len(varint) value is_updated(1byte)] * N
+        Format: [name_len(varint) name value_len(varint) value is_updated(1byte)] * N
 
-        :param data: 原始字节
-        :return: True 表示解析成功
-        :raises ValueError: 数据格式错误
+        :param data: Raw bytes
+        :return: True on successful parsing
+        :raises ValueError: On data format error
         """
         self.fields = []
         pos = 0
@@ -169,13 +169,13 @@ class FieldGroupReader:
 
     def from_consumption_string(self, data: bytes) -> bool:
         """
-        解析消费消息格式。
+        Parse consumption message format.
 
-        格式：[is_existed(1byte) [value_len(varint) value is_updated(1byte)]] * N
+        Format: [is_existed(1byte) [value_len(varint) value is_updated(1byte)]] * N
 
-        :param data: 原始字节
-        :return: True 表示解析成功
-        :raises ValueError: 数据格式错误
+        :param data: Raw bytes
+        :return: True on successful parsing
+        :raises ValueError: On data format error
         """
         self.fields = []
         pos = 0

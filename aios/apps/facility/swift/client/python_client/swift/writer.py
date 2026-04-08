@@ -1,7 +1,7 @@
 """
-Swift Writer - 消息写入器。
+Swift Writer - Message writer.
 
-对应 Java 端的 SwiftWriter.java。
+Corresponds to SwiftWriter.java on the Java side.
 """
 
 import threading
@@ -12,12 +12,12 @@ from .exception import ErrorCode, SwiftException
 
 class SwiftWriter:
     """
-    向 Swift topic 写入消息。
+    Write messages to a Swift topic.
 
-    所有方法均线程安全（内部加锁）。
-    默认超时单位为微秒（与 Java 端一致）：
-      - wait_finished 默认超时：30_000_000 us = 30s
-      - wait_sent     默认超时：3_000_000  us = 3s
+    All methods are thread-safe (internally locked).
+    Default timeout unit is microseconds (consistent with Java side):
+      - wait_finished default timeout: 30_000_000 us = 30s
+      - wait_sent     default timeout: 3_000_000  us = 3s
     """
 
     DEFAULT_WAIT_FINISHED_TIMEOUT_US = 30 * 1000 * 1000  # 30s
@@ -29,15 +29,15 @@ class SwiftWriter:
         self._lock = threading.Lock()
 
     # ------------------------------------------------------------------ #
-    #  写入消息                                                             #
+    #  Write Messages                                                      #
     # ------------------------------------------------------------------ #
 
     def write(self, msg):
         """
-        写入单条消息。
+        Write a single message.
 
-        :param msg: WriteMessageInfo protobuf 对象，或已序列化的 bytes
-        :raises SwiftException: 写入失败时抛出
+        :param msg: WriteMessageInfo protobuf object, or serialized bytes
+        :raises SwiftException: Raised on write failure
         """
         with self._lock:
             self._check_open()
@@ -47,11 +47,11 @@ class SwiftWriter:
 
     def write_batch(self, msg_vec, wait_sent: bool = False):
         """
-        批量写入消息。
+        Write messages in batch.
 
-        :param msg_vec:   WriteMessageInfoVec protobuf 对象，或已序列化的 bytes
-        :param wait_sent: 是否等待消息发送完成
-        :raises SwiftException: 写入失败时抛出
+        :param msg_vec:   WriteMessageInfoVec protobuf object, or serialized bytes
+        :param wait_sent: Whether to wait for messages to be sent
+        :raises SwiftException: Raised on write failure
         """
         with self._lock:
             self._check_open()
@@ -60,15 +60,15 @@ class SwiftWriter:
             self._raise_if_error(ec)
 
     # ------------------------------------------------------------------ #
-    #  等待操作                                                             #
+    #  Wait Operations                                                     #
     # ------------------------------------------------------------------ #
 
     def wait_finished(self, timeout_us: int = DEFAULT_WAIT_FINISHED_TIMEOUT_US):
         """
-        等待所有消息写入并持久化完成。
+        Wait for all messages to be written and persisted.
 
-        :param timeout_us: 超时时间（微秒），默认 30s
-        :raises SwiftException: 超时或失败时抛出
+        :param timeout_us: Timeout in microseconds, default 30s
+        :raises SwiftException: Raised on timeout or failure
         """
         with self._lock:
             self._check_open()
@@ -77,10 +77,10 @@ class SwiftWriter:
 
     def wait_sent(self, timeout_us: int = DEFAULT_WAIT_SENT_TIMEOUT_US):
         """
-        等待所有消息发送到 Broker（不要求持久化）。
+        Wait for all messages to be sent to the Broker (persistence not required).
 
-        :param timeout_us: 超时时间（微秒），默认 3s
-        :raises SwiftException: 超时或失败时抛出
+        :param timeout_us: Timeout in microseconds, default 3s
+        :raises SwiftException: Raised on timeout or failure
         """
         with self._lock:
             self._check_open()
@@ -88,22 +88,22 @@ class SwiftWriter:
             self._raise_if_error(ec)
 
     # ------------------------------------------------------------------ #
-    #  其他操作                                                             #
+    #  Other Operations                                                    #
     # ------------------------------------------------------------------ #
 
     def get_committed_checkpoint_id(self) -> int:
         """
-        获取已提交的 checkpoint ID。
+        Get the committed checkpoint ID.
 
-        :return: checkpoint ID（-1 表示尚无提交）
-        :raises SwiftException: Writer 已关闭时抛出
+        :return: Checkpoint ID (-1 means no checkpoint committed yet)
+        :raises SwiftException: Raised when Writer is closed
         """
         with self._lock:
             self._check_open()
             return self._api.get_committed_checkpoint_id(self._writer_ptr)
 
     # ------------------------------------------------------------------ #
-    #  生命周期                                                             #
+    #  Lifecycle                                                           #
     # ------------------------------------------------------------------ #
 
     def is_closed(self) -> bool:
@@ -127,7 +127,7 @@ class SwiftWriter:
         self.close()
 
     # ------------------------------------------------------------------ #
-    #  内部工具                                                             #
+    #  Internal Utilities                                                  #
     # ------------------------------------------------------------------ #
 
     def _check_open(self):

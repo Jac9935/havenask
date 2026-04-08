@@ -1,8 +1,8 @@
 """
-Swift 原生库的 ctypes 封装层。
+ctypes wrapper for the Swift native library.
 
-对应 Java 端的 SwiftClientApiLibrary.java（通过 JNA 调用 libswift_client_minimal.so）。
-依赖加载顺序必须与 Java 端保持一致：
+Corresponds to SwiftClientApiLibrary.java on the Java side (calling libswift_client_minimal.so via JNA).
+Library loading order must be consistent with the Java side:
   libprotobuf -> libzookeeper_mt -> libalog -> libanet -> libarpc -> libautil -> libswift_client_minimal
 """
 
@@ -12,14 +12,14 @@ import os
 from typing import Optional, Tuple
 
 
-# 在 Linux x86_64 上，C long 是 64 位，与 Java NativeLong 一致
+# On Linux x86_64, C long is 64-bit, consistent with Java NativeLong
 c_long_p = ctypes.POINTER(ctypes.c_long)
 c_int_p = ctypes.POINTER(ctypes.c_int)
 c_void_pp = ctypes.POINTER(ctypes.c_void_p)
 
 
 def _load_lib(name: str, lib_dir: Optional[str] = None, flags: int = ctypes.RTLD_GLOBAL) -> ctypes.CDLL:
-    """加载共享库，优先从 lib_dir 查找。"""
+    """Load a shared library, preferring lib_dir if specified."""
     if lib_dir:
         path = os.path.join(lib_dir, name)
         if os.path.exists(path):
@@ -29,12 +29,12 @@ def _load_lib(name: str, lib_dir: Optional[str] = None, flags: int = ctypes.RTLD
 
 class SwiftClientApi:
     """
-    封装 libswift_client_minimal.so 提供的 C 接口。
+    Wraps the C interfaces provided by libswift_client_minimal.so.
 
-    所有方法签名严格参照 SwiftClientApiLibrary.java 中的 native 声明。
+    All method signatures strictly follow the native declarations in SwiftClientApiLibrary.java.
     """
 
-    # 依赖库加载顺序（与 Java 端一致）
+    # Dependency library loading order (consistent with Java side)
     _DEP_LIBS = [
         "libprotobuf.so.7.0.0",
         "libzookeeper_mt.so.2.0.0",
@@ -47,9 +47,9 @@ class SwiftClientApi:
 
     def __init__(self, lib_dir: Optional[str] = None):
         """
-        初始化并加载原生库。
+        Initialize and load native libraries.
 
-        :param lib_dir: so 文件所在目录，如果为 None 则依赖 LD_LIBRARY_PATH
+        :param lib_dir: Directory containing .so files; if None, relies on LD_LIBRARY_PATH
         """
         self._lib_dir = lib_dir
         self._dep_handles = []
@@ -58,7 +58,7 @@ class SwiftClientApi:
         self._setup_signatures()
 
     def _load_libraries(self):
-        """按顺序加载所有依赖库，最后加载主库。"""
+        """Load all dependency libraries in order, then load the main library."""
         for dep in self._DEP_LIBS:
             handle = _load_lib(dep, self._lib_dir, ctypes.RTLD_GLOBAL)
             self._dep_handles.append(handle)
@@ -66,7 +66,7 @@ class SwiftClientApi:
         self._lib = _load_lib(self._MAIN_LIB, self._lib_dir, ctypes.RTLD_GLOBAL)
 
     def _setup_signatures(self):
-        """为所有 native 函数设置参数类型和返回值类型。"""
+        """Set parameter types and return types for all native functions."""
         lib = self._lib
 
         # ---- Swift Client ----
@@ -182,11 +182,11 @@ class SwiftClientApi:
         lib.freeString.restype = None
 
     # ------------------------------------------------------------------ #
-    #  内部工具方法                                                         #
+    #  Internal Utility Methods                                            #
     # ------------------------------------------------------------------ #
 
     def _read_output_string(self, ptr: ctypes.c_void_p, length: int) -> bytes:
-        """从 native 输出指针中读取字节并释放内存。"""
+        """Read bytes from a native output pointer and free the memory."""
         if not ptr.value:
             return b""
         data = ctypes.string_at(ptr.value, length)
@@ -194,12 +194,12 @@ class SwiftClientApi:
         return data
 
     # ------------------------------------------------------------------ #
-    #  Client 接口                                                          #
+    #  Client Interface                                                    #
     # ------------------------------------------------------------------ #
 
     def create_swift_client(self, config_str: str) -> Tuple[int, int]:
         """
-        创建 Swift 客户端。
+        Create a Swift client.
 
         :return: (error_code, client_ptr)
         """
@@ -211,12 +211,12 @@ class SwiftClientApi:
         self._lib.deleteSwiftClient(ctypes.c_long(client_ptr))
 
     # ------------------------------------------------------------------ #
-    #  Reader 接口                                                          #
+    #  Reader Interface                                                    #
     # ------------------------------------------------------------------ #
 
     def create_swift_reader(self, client_ptr: int, reader_config: str) -> Tuple[int, int]:
         """
-        创建 Swift Reader。
+        Create a Swift Reader.
 
         :return: (error_code, reader_ptr)
         """
@@ -230,10 +230,10 @@ class SwiftClientApi:
 
     def read_message(self, reader_ptr: int, timeout: int) -> Tuple[int, int, bytes]:
         """
-        读取单条消息。
+        Read a single message.
 
-        :param reader_ptr: Reader 指针
-        :param timeout:    超时时间（微秒）
+        :param reader_ptr: Reader pointer
+        :param timeout:    Timeout in microseconds
         :return: (error_code, timestamp_us, serialized_Message_bytes)
         """
         timestamp = ctypes.c_long(0)
@@ -251,7 +251,7 @@ class SwiftClientApi:
 
     def read_messages(self, reader_ptr: int, timeout: int) -> Tuple[int, int, bytes]:
         """
-        批量读取消息（返回 Messages 序列化字节）。
+        Read messages in batch (returns serialized Messages bytes).
 
         :return: (error_code, timestamp_us, serialized_Messages_bytes)
         """
@@ -280,9 +280,9 @@ class SwiftClientApi:
 
     def set_timestamp_limit(self, reader_ptr: int, time_limit: int) -> int:
         """
-        设置时间戳上限。
+        Set timestamp upper limit.
 
-        :return: accept_timestamp（微秒）
+        :return: accept_timestamp (microseconds)
         """
         accept_ts = ctypes.c_long(0)
         self._lib.setTimestampLimit(
@@ -294,7 +294,7 @@ class SwiftClientApi:
 
     def get_partition_status(self, reader_ptr: int) -> Tuple[int, int, int]:
         """
-        获取分区状态。
+        Get partition status.
 
         :return: (refresh_time_us, max_message_id, max_message_timestamp_us)
         """
@@ -313,12 +313,12 @@ class SwiftClientApi:
         self._lib.deleteSwiftReader(ctypes.c_long(reader_ptr))
 
     # ------------------------------------------------------------------ #
-    #  Writer 接口                                                          #
+    #  Writer Interface                                                    #
     # ------------------------------------------------------------------ #
 
     def create_swift_writer(self, client_ptr: int, writer_config: str) -> Tuple[int, int]:
         """
-        创建 Swift Writer。
+        Create a Swift Writer.
 
         :return: (error_code, writer_ptr)
         """
@@ -358,7 +358,7 @@ class SwiftClientApi:
         self._lib.deleteSwiftWriter(ctypes.c_long(writer_ptr))
 
     # ------------------------------------------------------------------ #
-    #  Admin 接口                                                           #
+    #  Admin Interface                                                     #
     # ------------------------------------------------------------------ #
 
     def get_admin_adapter(self, client_ptr: int) -> int:
@@ -369,7 +369,7 @@ class SwiftClientApi:
 
     def get_broker_address(self, admin_ptr: int, topic_name: str, partition_id: int) -> Tuple[int, str]:
         """
-        获取 Broker 地址。
+        Get broker address.
 
         :return: (error_code, broker_address)
         """

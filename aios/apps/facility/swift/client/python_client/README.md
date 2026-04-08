@@ -1,124 +1,124 @@
 # Swift Python Client
 
-Swift 消息队列的 Python 客户端，基于 `ctypes` 封装原生 C++ 库，实现与 Java 客户端等价的功能。
+Python client for the Swift message queue, wrapping the native C++ library via `ctypes` to provide functionality equivalent to the Java client.
 
-## 目录结构
+## Directory Structure
 
 ```
 python_client/
 ├── swift/
-│   ├── __init__.py          # 包入口，导出主要类
-│   ├── client.py            # SwiftClient  — 主客户端
-│   ├── reader.py            # SwiftReader  — 消息读取器
-│   ├── writer.py            # SwiftWriter  — 消息写入器
-│   ├── admin.py             # SwiftAdminAdaptor — 管理操作
-│   ├── api.py               # ctypes 原生库封装层
-│   ├── exception.py         # 异常类 & 错误码
-│   ├── proto/               # protobuf 生成文件（需执行 generate_proto.sh）
+│   ├── __init__.py          # Package entry, exports main classes
+│   ├── client.py            # SwiftClient  — Main client
+│   ├── reader.py            # SwiftReader  — Message reader
+│   ├── writer.py            # SwiftWriter  — Message writer
+│   ├── admin.py             # SwiftAdminAdaptor — Admin operations
+│   ├── api.py               # ctypes native library wrapper
+│   ├── exception.py         # Exception classes & error codes
+│   ├── proto/               # protobuf generated files (run generate_proto.sh)
 │   └── util/
 │       ├── __init__.py
 │       └── field_group.py   # FieldGroupWriter / FieldGroupReader
-├── example.py               # 使用示例
-├── generate_proto.sh        # 生成 proto Python 绑定的脚本
+├── example.py               # Usage examples
+├── generate_proto.sh        # Script to generate proto Python bindings
 └── requirements.txt
 ```
 
-## 依赖
+## Dependencies
 
 ```bash
 pip install -r requirements.txt
-# 依赖：protobuf >= 3.20.0
+# Requires: protobuf >= 3.20.0
 ```
 
-## Proto 文件生成
+## Proto File Generation
 
-客户端使用 protobuf 进行消息序列化，需要先生成 Python 绑定：
+The client uses protobuf for message serialization. Python bindings must be generated first:
 
 ```bash
-# 确保 protoc 已安装（推荐 3.x）
+# Ensure protoc is installed (3.x recommended)
 which protoc
 
-# 生成 Python proto 文件
+# Generate Python proto files
 bash generate_proto.sh
 ```
 
-生成后 `swift/proto/` 目录下会出现以下文件：
+After generation, the following files will appear in `swift/proto/`:
 - `common_pb2.py`
 - `err_code_pb2.py`
 - `swift_message_pb2.py`
 - `admin_request_response_pb2.py`
 - `heartbeat_pb2.py`
 
-> **注意**：即使不生成 proto 文件，客户端也可工作，但读写方法返回原始 `bytes` 而非 protobuf 对象。
+> **Note**: The client works even without generated proto files, but read/write methods will return raw `bytes` instead of protobuf objects.
 
-## 原生库配置
+## Native Library Configuration
 
-Python 客户端通过 ctypes 调用以下 `.so` 文件（与 Java 端相同）：
+The Python client calls the following `.so` files via ctypes (same as the Java client):
 
-| 库文件 | 说明 |
-|--------|------|
-| `libprotobuf.so.7.0.0` | Protobuf 运行时 |
-| `libzookeeper_mt.so.2.0.0` | ZooKeeper 客户端 |
-| `libalog.so.13.2.2` | Alibaba 日志库 |
-| `libanet.so.13.2.1` | Alibaba 网络库 |
-| `libarpc.so.13.2.2` | Alibaba RPC 库 |
-| `libautil.so.9.3` | Alibaba 工具库 |
-| `libswift_client_minimal.so.107.2` | **Swift 客户端主库** |
+| Library | Description |
+|---------|-------------|
+| `libprotobuf.so.7.0.0` | Protobuf runtime |
+| `libzookeeper_mt.so.2.0.0` | ZooKeeper client |
+| `libalog.so.13.2.2` | Alibaba logging library |
+| `libanet.so.13.2.1` | Alibaba networking library |
+| `libarpc.so.13.2.2` | Alibaba RPC library |
+| `libautil.so.9.3` | Alibaba utility library |
+| `libswift_client_minimal.so.107.2` | **Swift client main library** |
 
-有两种方式让 Python 找到这些库：
+There are two ways for Python to locate these libraries:
 
-**方式 1：设置 LD_LIBRARY_PATH（推荐）**
+**Option 1: Set LD_LIBRARY_PATH (recommended)**
 ```bash
 export LD_LIBRARY_PATH=/path/to/so/files:$LD_LIBRARY_PATH
 python example.py
 ```
 
-**方式 2：通过 lib_dir 参数指定**
+**Option 2: Specify via lib_dir parameter**
 ```python
 client = SwiftClient(lib_dir="/path/to/so/files")
 ```
 
-> 提示：这些 `.so` 文件与 Java JAR 包中的 `linux-x86-64/` 目录内容相同，可直接解压复用。
+> Tip: These `.so` files are identical to those in the `linux-x86-64/` directory inside the Java JAR package and can be extracted for reuse.
 
-## 快速使用
+## Quick Start
 
-### 初始化客户端
+### Initialize the Client
 
 ```python
 from swift import SwiftClient
 
-# 方式 1：with 语句（自动关闭）
+# Option 1: with statement (auto-close)
 with SwiftClient(lib_dir="/path/to/so") as client:
     client.init("zkPath=zfs://10.0.0.1:2181/swift/service;logConfigFile=./alog.conf")
     # ...
 
-# 方式 2：手动管理
+# Option 2: Manual management
 client = SwiftClient(lib_dir="/path/to/so")
 client.init("zkPath=zfs://10.0.0.1:2181/swift/service")
 # ...
 client.close()
 ```
 
-客户端配置字符串格式：
+Client configuration string format:
 ```
 zkPath=zfs://host1:port,host2:port,host3:port/path;
 logConfigFile=./swift_alog.conf;
 useFollowerAdmin=true|false
 ```
 
-### 写入消息
+### Write Messages
 
 ```python
 from swift.proto.swift_message_pb2 import WriteMessageInfo, WriteMessageInfoVec
 
 writer = client.create_writer("topicName=my_topic")
 
-# 写入单条消息
+# Write a single message
 msg = WriteMessageInfo(data=b"hello swift")
 writer.write(msg)
-writer.wait_finished()          # 等待持久化（默认 30s 超时）
+writer.wait_finished()          # Wait for persistence (default 30s timeout)
 
-# 批量写入
+# Batch write
 msgs = WriteMessageInfoVec()
 for i in range(100):
     msgs.messageInfoVec.append(WriteMessageInfo(data=f"msg {i}".encode()))
@@ -127,37 +127,37 @@ writer.write_batch(msgs, wait_sent=True)
 writer.close()
 ```
 
-### 使用 FieldGroup 结构化消息
+### Using FieldGroup for Structured Messages
 
 ```python
 from swift.util import FieldGroupWriter, FieldGroupReader
 
-# 写入端：序列化字段
+# Producer side: serialize fields
 fw = FieldGroupWriter()
-fw.add_field("title", "商品标题", is_updated=False)
+fw.add_field("title", "Product Title", is_updated=False)
 fw.add_field("price", "99.9", is_updated=True)
 data = fw.to_bytes()
 
 msg = WriteMessageInfo(data=data)
 writer.write(msg)
 
-# 读取端：反序列化字段
+# Consumer side: deserialize fields
 fr = FieldGroupReader()
 fr.from_production_string(raw_data)
 for field in fr.fields:
     print(f"{field.name} = {field.value} (updated={field.is_updated})")
 ```
 
-### 读取消息
+### Read Messages
 
 ```python
 reader = client.create_reader("topicName=my_topic;partitionId=0")
 
-# 从最新时间戳开始读（在 reader_config 中设置起始位置）
-# reader_config 选项：
-#   readFromOffset=readFromBeginning   从头开始
-#   readFromOffset=readFromEnd         从末尾开始（默认）
-#   readFromOffset=readFromTimestamp:1234567890  从指定时间戳开始
+# Read from latest timestamp (set start position in reader_config)
+# reader_config options:
+#   readFromOffset=readFromBeginning   Read from the beginning
+#   readFromOffset=readFromEnd         Read from the end (default)
+#   readFromOffset=readFromTimestamp:1234567890  Read from a specific timestamp
 
 while True:
     try:
@@ -166,18 +166,18 @@ while True:
     except SwiftException as e:
         if e.ec in (ErrorCode.ERROR_BROKER_NO_DATA,
                     ErrorCode.ERROR_CLIENT_READ_MESSAGE_TIMEOUT):
-            break  # 无更多数据
+            break  # No more data
         raise
 
 reader.close()
 ```
 
-### 管理操作
+### Admin Operations
 
 ```python
 admin = client.get_admin_adapter()
 
-# 创建 Topic
+# Create a Topic
 from swift.proto.admin_request_response_pb2 import TopicCreationRequest
 from swift.proto.common_pb2 import TOPIC_MODE_NORMAL
 
@@ -191,42 +191,42 @@ req = TopicCreationRequest(
 admin.create_topic(req)
 admin.wait_topic_ready("my_topic", timeout_sec=60)
 
-# 查询 Topic 信息
+# Query Topic info
 count = admin.get_partition_count("my_topic")
 info = admin.get_topic_info("my_topic")
 
-# Broker 地址
+# Broker address
 addr = admin.get_broker_address("my_topic", partition_id=0)
 
-# 删除 Topic
+# Delete a Topic
 admin.delete_topic("my_topic")
 
 admin.close()
 ```
 
-## 与 Java 客户端的对应关系
+## Java Client Mapping
 
-| Java | Python | 说明 |
-|------|--------|------|
-| `SwiftClient.java` | `swift/client.py` | 主客户端入口 |
-| `SwiftReader.java` | `swift/reader.py` | 消息读取器 |
-| `SwiftWriter.java` | `swift/writer.py` | 消息写入器 |
-| `SwiftAdminAdaptor.java` | `swift/admin.py` | 管理操作 |
-| `SwiftClientApiLibrary.java` | `swift/api.py` | 原生库封装（JNA→ctypes） |
-| `SwiftException.java` | `swift/exception.py` | 异常类 |
-| `FieldGroupWriter.java` | `swift/util/field_group.py` | 字段序列化 |
-| `FieldGroupReader.java` | `swift/util/field_group.py` | 字段反序列化 |
+| Java | Python | Description |
+|------|--------|-------------|
+| `SwiftClient.java` | `swift/client.py` | Main client entry point |
+| `SwiftReader.java` | `swift/reader.py` | Message reader |
+| `SwiftWriter.java` | `swift/writer.py` | Message writer |
+| `SwiftAdminAdaptor.java` | `swift/admin.py` | Admin operations |
+| `SwiftClientApiLibrary.java` | `swift/api.py` | Native library wrapper (JNA -> ctypes) |
+| `SwiftException.java` | `swift/exception.py` | Exception classes |
+| `FieldGroupWriter.java` | `swift/util/field_group.py` | Field serialization |
+| `FieldGroupReader.java` | `swift/util/field_group.py` | Field deserialization |
 
-### 超时单位
+### Timeout Units
 
-与 Java 端一致，所有超时参数单位均为**微秒（μs）**：
-- `read()` 默认超时：`3_000_000` μs = 3s
-- `wait_finished()` 默认超时：`30_000_000` μs = 30s
-- `wait_sent()` 默认超时：`3_000_000` μs = 3s
+Consistent with the Java client, all timeout parameters are in **microseconds (us)**:
+- `read()` default timeout: `3_000_000` us = 3s
+- `wait_finished()` default timeout: `30_000_000` us = 30s
+- `wait_sent()` default timeout: `3_000_000` us = 3s
 
-## 错误处理
+## Error Handling
 
-所有操作失败时抛出 `SwiftException`，可通过 `.ec` 属性获取错误码：
+All operations throw `SwiftException` on failure. Use the `.ec` attribute to get the error code:
 
 ```python
 from swift import SwiftException, ErrorCode
@@ -235,14 +235,14 @@ try:
     admin.create_topic(req)
 except SwiftException as e:
     if e.ec == ErrorCode.ERROR_ADMIN_TOPIC_HAS_EXISTED:
-        print("Topic 已存在")
+        print("Topic already exists")
     else:
         raise
 ```
 
-常见错误码：
-- `ERROR_ADMIN_TOPIC_HAS_EXISTED` (21101) — Topic 已存在
-- `ERROR_ADMIN_TOPIC_NOT_EXISTED` (21102) — Topic 不存在
-- `ERROR_BROKER_NO_DATA` (12107) — 暂无新消息
-- `ERROR_CLIENT_READ_MESSAGE_TIMEOUT` (13209) — 读取超时
-- `ERROR_CLIENT_NO_MORE_MESSAGE` (13213) — 没有更多消息
+Common error codes:
+- `ERROR_ADMIN_TOPIC_HAS_EXISTED` (21101) — Topic already exists
+- `ERROR_ADMIN_TOPIC_NOT_EXISTED` (21102) — Topic does not exist
+- `ERROR_BROKER_NO_DATA` (12107) — No new messages available
+- `ERROR_CLIENT_READ_MESSAGE_TIMEOUT` (13209) — Read timeout
+- `ERROR_CLIENT_NO_MORE_MESSAGE` (13213) — No more messages
